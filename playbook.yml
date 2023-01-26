@@ -1,0 +1,42 @@
+---
+- hosts: localhost
+  tasks:
+    - name: ~/Downloads | Find csv
+      find:
+        paths: ~/Downloads
+        recurse: false
+        patterns: '*.csv'
+      register: download_pdf
+    - name: ~/Downloads | Find compressed files
+      find:
+        paths: ~/Downloads
+        recurse: false
+        patterns: 
+          - '*.zip'
+          - '*.rar'
+      register: download_compressed
+
+        #    - name: Debug | ~/Downloads | Debug compressed files 
+        #      ansible.builtin.debug:
+        #        var: download_compressed
+        #    - name: Apply filter while looping
+        #      debug:
+        #        msg: >-
+        #          {{ item.path | regex_replace('^([^\.]*).*', '\1') }}
+        #      loop: "{{ download_compressed.files }}"
+
+    - name: Create variable with file paths without extension
+      set_fact:
+        file_paths_without_extension: "{{ download_compressed.files | map(attribute='path') | map('regex_replace', '\\..*', '') | list }}"
+
+          #    - name: ~/Downloads | Delete csv
+          #      file:
+          #        path: "{{ item.path }}"
+          #        state: absent
+          #      with_items: "{{ download_pdf.files }}"
+
+    - name: ~/Downloads | Delete uncompressed folders
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items: "{{ file_paths_without_extension }}"
