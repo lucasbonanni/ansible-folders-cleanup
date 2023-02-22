@@ -1,12 +1,42 @@
 ---
 - hosts: localhost
   tasks:
+
+    - name: Install required packages
+      become: yes
+      package:
+        name:
+          - libgcj
+          - libgcj-devel
+          - libstdc++
+          - libstdc++-devel
+          - gcj
+        state: present
+
+    - name: Install pdftk for Linux
+      when: "'Linux' in ansible_system"
+      become: yes
+      package:
+        name: pdftk
+        state: present
+
+    - name: Install pdftk for macOS
+      when: "'Darwin' in ansible_system"
+      become: yes
+      shell: |
+        brew install pdftk
+      args:
+        creates: /usr/local/bin/pdftk
+
+
     - name: ~/Downloads | Find csv
       find:
         paths: ~/Downloads
         recurse: false
-        patterns: '*.csv'
-      register: download_pdf
+        patterns: 
+          - '*.csv'
+          - '*.dmg'
+      register: to_delete
     - name: ~/Downloads | Find compressed files
       find:
         paths: ~/Downloads
@@ -16,6 +46,13 @@
           - '*.rar'
       register: download_compressed
 
+    - name: ~/Downloads | Find PDF files
+      find:
+        paths: ~/Downloads
+        recurse: false
+        patterns: 
+          - '*.pdf'
+      register: pdf_files
         #    - name: Debug | ~/Downloads | Debug compressed files 
         #      ansible.builtin.debug:
         #        var: download_compressed
@@ -29,14 +66,32 @@
       set_fact:
         file_paths_without_extension: "{{ download_compressed.files | map(attribute='path') | map('regex_replace', '\\..*', '') | list }}"
 
-          #    - name: ~/Downloads | Delete csv
-          #      file:
-          #        path: "{{ item.path }}"
-          #        state: absent
-          #      with_items: "{{ download_pdf.files }}"
+    - name: ~/Downloads | Delete know files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ to_delete.files }}"
 
     - name: ~/Downloads | Delete uncompressed folders
       file:
         path: "{{ item }}"
         state: absent
       with_items: "{{ file_paths_without_extension }}"
+
+    - name: Extract authors attribute of a PDF using pdftk
+      ansible.builtin.command: pdftk {{ pdf_file }} dump_data | grep 'InfoKey":" Author'
+      register: authors
+
+    # https://stackoverflow.com/questions/40936360/syntax-error-on-colon-in-ansible-command-argument
+    - name: Classify and move PDFs with more than 10 pages
+      ansible.builtin.command: sh -c "pdftk {{ item }} dump_data | grep 'NumberOfPages' | awk '{{ page_count = int(NF > 1 ? $(NF) ":" 0); if (page_count > 10) {print item}}}'"
+      register: pdfs_with_more_pages
+      with_items: "{{ pdf_files }}"
+
+    - name: Move classified PDFs with more than 10 pages
+      file:
+        src: "{{ item }}"
+        dest: "{{ pdf_folder }}/more_than_10_pages"
+        state: link
+      with_items: "{{ pdfs_with_more_pages.results }}"
+      when: item.rc == 0
