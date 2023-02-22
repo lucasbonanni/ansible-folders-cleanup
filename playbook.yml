@@ -3,7 +3,7 @@
   tasks:
 
     - name: Install required packages
-      become: yes
+      become: true
       package:
         name:
           - libgcj
@@ -13,27 +13,11 @@
           - gcj
         state: present
 
-    - name: Install pdftk for Linux
-      when: "'Linux' in ansible_system"
-      become: yes
-      package:
-        name: pdftk
-        state: present
-
-    - name: Install pdftk for macOS
-      when: "'Darwin' in ansible_system"
-      become: yes
-      shell: |
-        brew install pdftk
-      args:
-        creates: /usr/local/bin/pdftk
-
-
     - name: ~/Downloads | Find csv
       find:
         paths: ~/Downloads
         recurse: false
-        patterns: 
+        patterns:
           - '*.csv'
           - '*.dmg'
       register: to_delete
@@ -41,7 +25,7 @@
       find:
         paths: ~/Downloads
         recurse: false
-        patterns: 
+        patterns:
           - '*.zip'
           - '*.rar'
       register: download_compressed
@@ -50,17 +34,9 @@
       find:
         paths: ~/Downloads
         recurse: false
-        patterns: 
+        patterns:
           - '*.pdf'
       register: pdf_files
-        #    - name: Debug | ~/Downloads | Debug compressed files 
-        #      ansible.builtin.debug:
-        #        var: download_compressed
-        #    - name: Apply filter while looping
-        #      debug:
-        #        msg: >-
-        #          {{ item.path | regex_replace('^([^\.]*).*', '\1') }}
-        #      loop: "{{ download_compressed.files }}"
 
     - name: Create variable with file paths without extension
       set_fact:
