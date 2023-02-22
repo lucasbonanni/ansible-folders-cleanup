@@ -2,17 +2,6 @@
 - hosts: localhost
   tasks:
 
-    - name: Install required packages
-      become: true
-      package:
-        name:
-          - libgcj
-          - libgcj-devel
-          - libstdc++
-          - libstdc++-devel
-          - gcj
-        state: present
-
     - name: ~/Downloads | Find csv
       find:
         paths: ~/Downloads
@@ -21,6 +10,7 @@
           - '*.csv'
           - '*.dmg'
       register: to_delete
+
     - name: ~/Downloads | Find compressed files
       find:
         paths: ~/Downloads
